@@ -1,0 +1,69 @@
+# =============================================================================
+# PlayerTimeCounter – Konfiguration
+# =============================================================================
+# Tägliches Spielzeit-Limit pro Spieler. Bei Erreichen wird der Spieler
+# gekickt und bis zum nächsten Tageswechsel am Login gehindert.
+# =============================================================================
+
+# Tageslimit in Minuten (z. B. 120 = 2 Stunden)
+daily-limit-minutes: 120
+
+# Wie oft (in Sekunden) die Spielzeit intern aktualisiert wird
+tracker-interval-seconds: 5
+
+# Wie oft (in Sekunden) eine sporadische Erinnerung (Chat + Actionbar) kommt
+# 0 = nur Schwellen-Warnungen, keine periodischen Erinnerungen
+reminder-interval-seconds: 300
+
+# Warnungen (in Minuten Restzeit), sobald diese Schwelle unterschritten wird
+# Jede Schwelle wird pro Tag nur einmal angezeigt
+warning-thresholds-minutes:
+  - 30
+  - 10
+  - 5
+  - 1
+
+# Stunde (0–23) für den Tageswechsel (Server-Zeitzone)
+# Beispiel: 4 = Reset um 04:00 Uhr morgens
+reset-hour: 0
+
+# Bypass-Permission (Spieler mit dieser Permission haben kein Limit)
+bypass-permission: playertimecounter.bypass
+
+# -----------------------------------------------------------------------------
+# Nachrichten (& = Farbcodes, Platzhalter: {remaining}, {used}, {limit}, {player})
+# -----------------------------------------------------------------------------
+messages:
+  prefix: "&8[&bZeitlimit&8]&r "
+
+  remaining:
+    - "&7Du hast heute noch &a{remaining} &7übrig."
+    - "&8(Verbraucht: &7{used}&8 / Limit: &7{limit}&8)"
+
+  actionbar: "&b⏱ &7Noch &f{remaining} &7heute"
+
+  reminder-chat: "&7Erinnerung: Noch &a{remaining} &7Spielzeit heute."
+
+  warning: "&e⚠ Achtung:&7 Nur noch &c{remaining} &7übrig!"
+
+  kick: |-
+    &c&lTageslimit erreicht!
+    &7Dein Limit von &f{limit} &7ist aufgebraucht.
+    &7Komm morgen wieder – Reset um &f{reset}&7 Uhr.
+
+  deny-join: |-
+    &c&lTageslimit bereits erreicht!
+    &7Du hast heute schon &f{limit} &7gespielt.
+    &7Nächster Reset: &f{reset}&7 Uhr.
+
+  bypass: "&7Du hast &aBypass&7 – kein Zeitlimit aktiv."
+
+  reload-success: "&aKonfiguration neu geladen."
+  no-permission: "&cDazu hast du keine Berechtigung."
+  player-only: "&cNur Spieler können diesen Befehl nutzen."
+  player-not-found: "&cSpieler &f{player} &cnicht gefunden."
+  test-set: "&aSpielzeit von &f{player} &aauf &f{used} &agesetzt (&7Rest: {remaining}&a)."
+  test-add: "&a{used} &azu &f{player} &ahinzugefügt (&7Rest: {remaining}&a)."
+  test-reset: "&aTageszeit von &f{player} &azurückgesetzt."
+  test-status: "&7{player}: &f{used} &8/ &f{limit} &8→ Rest &a{remaining}"
+  test-usage: "&eNutzung: &f/playtimetest <set|add|reset|status> [Minuten] [Spieler]"
