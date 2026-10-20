@@ -1,0 +1,39 @@
+name: PlayerTimeCounter
+version: '${project.version}'
+main: infinode.org.example.playertimecounter.Playertimecounter
+api-version: '1.21'
+folia-supported: false
+description: Tägliches Spielzeit-Limit pro Spieler – kick & Login-Sperre bei Limitüberschreitung.
+author: Infinode
+load: POSTWORLD
+
+commands:
+  playtime:
+    description: Zeigt die verbleibende Spielzeit für heute an.
+    usage: /playtime
+    aliases: [zeit, spielzeit, timelimit]
+    permission: playertimecounter.playtime
+  playtimetest:
+    description: Test-Befehle zum Manipulieren der Spielzeit (Admin).
+    usage: /playtimetest <set|add|reset|status> [Minuten] [Spieler]
+    aliases: [pttest, zeittest]
+    permission: playertimecounter.test
+  playtimereload:
+    description: Lädt die Plugin-Konfiguration neu.
+    usage: /playtimereload
+    aliases: [ptreload]
+    permission: playertimecounter.reload
+
+permissions:
+  playertimecounter.playtime:
+    description: Erlaubt das Abfragen der eigenen Restzeit.
+    default: true
+  playertimecounter.test:
+    description: Erlaubt Test-Befehle zur Spielzeit-Manipulation.
+    default: op
+  playertimecounter.reload:
+    description: Erlaubt das Neuladen der Konfiguration.
+    default: op
+  playertimecounter.bypass:
+    description: Umgeht das Tageslimit vollständig.
+    default: op
