@@ -35,10 +35,7 @@ bypass-permission: playertimecounter.bypass
 # -----------------------------------------------------------------------------
 tab:
   enabled: true
-  # Gelbe Zahl ganz rechts (Rest-Minuten)
-  score-enabled: true
-  score-title: "&7min"
-  # Formatierter Text hinter dem Spielernamen
+  # Formatierter Text hinter dem Spielernamen (keine gelbe Zahl rechts)
   suffix-enabled: true
   # Platzhalter: {remaining_compact}, {remaining}, {color}, {remaining_minutes}, …
   suffix-format: " &8· {color}{remaining_compact}"

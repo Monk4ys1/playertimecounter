@@ -6,8 +6,6 @@ import infinode.org.example.playertimecounter.util.TimeFormatter;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.scoreboard.Criteria;
-import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 
@@ -18,10 +16,11 @@ import java.util.UUID;
 /**
  * Zeigt die verbleibende Tages-Spielzeit in der TAB-Liste:
  * <ul>
- *   <li>gelbe Zahl rechts (Scoreboard {@link DisplaySlot#PLAYER_LIST}, Minuten)</li>
- *   <li>formatierter Suffix hinter dem Spielernamen</li>
+ *   <li>formatierter Text hinter dem Spielernamen (z. B. {@code 1h 59m})</li>
  *   <li>optional Header/Footer</li>
  * </ul>
+ * Die gelbe Scoreboard-Zahl rechts wird bewusst nicht gesetzt.
+ * Ein altes Objective {@code ptc_remain} wird entfernt, falls es noch existiert.
  */
 public final class TabDisplayService {
 
@@ -65,7 +64,7 @@ public final class TabDisplayService {
         }
         applyPlayerListName(player);
         applyHeaderFooter(player);
-        syncScoresOnAllBoards();
+        unregisterObjectives();
     }
 
     /** Periodisches Update für alle Online-Spieler. */
@@ -77,11 +76,7 @@ public final class TabDisplayService {
             applyPlayerListName(player);
             applyHeaderFooter(player);
         }
-        if (settings.isTabScoreEnabled()) {
-            syncScoresOnAllBoards();
-        } else {
-            unregisterObjectives();
-        }
+        unregisterObjectives();
     }
 
     private void unregisterObjectives() {
@@ -103,7 +98,6 @@ public final class TabDisplayService {
     public void clearPlayer(Player player) {
         lastListName.remove(player.getUniqueId());
         player.playerListName(null);
-        removeScore(player.getName());
     }
 
     /** Setzt beim Disable alles zurück. */
@@ -166,72 +160,6 @@ public final class TabDisplayService {
         player.sendPlayerListHeaderAndFooter(header, footer);
     }
 
-    /**
-     * Schreibt die Rest-Minuten als Score auf jedes aktive Scoreboard,
-     * damit die gelbe Zahl rechts im TAB bei allen sichtbar ist.
-     */
-    private void syncScoresOnAllBoards() {
-        if (!settings.isTabScoreEnabled()) {
-            return;
-        }
-
-        Map<String, Integer> scores = new HashMap<>();
-        for (Player online : Bukkit.getOnlinePlayers()) {
-            scores.put(online.getName(), remainingMinutesForTab(online));
-        }
-
-        // Haupt-Scoreboard + alle Spieler-Scoreboards (andere Plugins)
-        ensureAndWrite(Bukkit.getScoreboardManager().getMainScoreboard(), scores);
-        for (Player viewer : Bukkit.getOnlinePlayers()) {
-            ensureAndWrite(viewer.getScoreboard(), scores);
-        }
-    }
-
-    private void ensureAndWrite(Scoreboard board, Map<String, Integer> scores) {
-        Objective objective = board.getObjective(OBJECTIVE_NAME);
-        if (objective == null) {
-            objective = board.registerNewObjective(
-                    OBJECTIVE_NAME,
-                    Criteria.DUMMY,
-                    messages.colorize(settings.getTabScoreTitle())
-            );
-        } else {
-            objective.displayName(messages.colorize(settings.getTabScoreTitle()));
-        }
-        if (objective.getDisplaySlot() != DisplaySlot.PLAYER_LIST) {
-            objective.setDisplaySlot(DisplaySlot.PLAYER_LIST);
-        }
-
-        for (Map.Entry<String, Integer> entry : scores.entrySet()) {
-            objective.getScore(entry.getKey()).setScore(entry.getValue());
-        }
-    }
-
-    private void removeScore(String playerName) {
-        Scoreboard main = Bukkit.getScoreboardManager().getMainScoreboard();
-        resetScore(main, playerName);
-        for (Player viewer : Bukkit.getOnlinePlayers()) {
-            resetScore(viewer.getScoreboard(), playerName);
-        }
-    }
-
-    private void resetScore(Scoreboard board, String playerName) {
-        Objective objective = board.getObjective(OBJECTIVE_NAME);
-        if (objective != null && objective.getScore(playerName).isScoreSet()) {
-            // Nur unseren Eintrag entfernen, nicht Scores anderer Plugins
-            objective.getScore(playerName).resetScore();
-        }
-    }
-
-    private int remainingMinutesForTab(Player player) {
-        if (timeLimitService.hasBypass(player)) {
-            // Bypass: volle Limit-Minuten als Anzeige (kein Countdown)
-            return (int) (settings.getDailyLimitMs() / 60_000L);
-        }
-        long remainingMs = timeLimitService.getRemainingMs(player.getUniqueId());
-        return (int) Math.ceil(remainingMs / 60_000.0);
-    }
-
     private Map<String, String> buildTabPlaceholders(Player player) {
         Map<String, String> map = new HashMap<>(timeLimitService.placeholders(player));
         long remainingMs = timeLimitService.hasBypass(player)
@@ -242,10 +170,14 @@ public final class TabDisplayService {
         map.put("remaining_compact", bypass
                 ? settings.getTabBypassLabel()
                 : TimeFormatter.formatCompact(remainingMs));
-        map.put("remaining_minutes", String.valueOf(remainingMinutesForTab(player)));
+        map.put("remaining_minutes", String.valueOf(minutesRemaining(remainingMs)));
         map.put("color", bypass ? "&d" : remainingColor(remainingMs));
         map.put("online", String.valueOf(Bukkit.getOnlinePlayers().size()));
         return map;
+    }
+
+    private static int minutesRemaining(long remainingMs) {
+        return (int) Math.ceil(Math.max(0L, remainingMs) / 60_000.0);
     }
 
     /**

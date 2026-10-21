@@ -23,10 +23,8 @@ public final class PluginSettings {
 
     // TAB
     private final boolean tabEnabled;
-    private final boolean tabScoreEnabled;
     private final boolean tabSuffixEnabled;
     private final boolean tabHeaderFooterEnabled;
-    private final String tabScoreTitle;
     private final String tabSuffixFormat;
     private final String tabHeader;
     private final String tabFooter;
@@ -61,11 +59,9 @@ public final class PluginSettings {
         this.bypassPermission = config.getString("bypass-permission", "playertimecounter.bypass");
 
         this.tabEnabled = config.getBoolean("tab.enabled", true);
-        this.tabScoreEnabled = config.getBoolean("tab.score-enabled", true);
         this.tabSuffixEnabled = config.getBoolean("tab.suffix-enabled", true);
         this.tabHeaderFooterEnabled = config.getBoolean("tab.header-footer-enabled", true);
-        this.tabScoreTitle = config.getString("tab.score-title", "&bRest");
-        this.tabSuffixFormat = config.getString("tab.suffix-format", " &8• {color}{remaining_compact}");
+        this.tabSuffixFormat = config.getString("tab.suffix-format", " &8· {color}{remaining_compact}");
         this.tabHeader = config.getString("tab.header", "&b&lZeitlimit\n&7Heute noch &f{remaining}");
         this.tabFooter = config.getString("tab.footer", "&8Reset um &7{reset} &8Uhr &8| &7{online} online");
         this.tabBypassLabel = config.getString("tab.bypass-label", "∞");
@@ -99,20 +95,12 @@ public final class PluginSettings {
         return tabEnabled;
     }
 
-    public boolean isTabScoreEnabled() {
-        return tabScoreEnabled;
-    }
-
     public boolean isTabSuffixEnabled() {
         return tabSuffixEnabled;
     }
 
     public boolean isTabHeaderFooterEnabled() {
         return tabHeaderFooterEnabled;
-    }
-
-    public String getTabScoreTitle() {
-        return tabScoreTitle;
     }
 
     public String getTabSuffixFormat() {
