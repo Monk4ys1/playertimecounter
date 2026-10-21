@@ -31,6 +31,27 @@ reset-hour: 0
 bypass-permission: playertimecounter.bypass
 
 # -----------------------------------------------------------------------------
+# TAB-Liste – Restzeit rechts / hinter dem Namen
+# -----------------------------------------------------------------------------
+tab:
+  enabled: true
+  # Gelbe Zahl ganz rechts (Rest-Minuten)
+  score-enabled: true
+  score-title: "&bRest"
+  # Formatierter Text hinter dem Spielernamen
+  suffix-enabled: true
+  # Platzhalter: {remaining_compact}, {remaining}, {color}, {remaining_minutes}, …
+  suffix-format: " &8• {color}{remaining_compact}"
+  # Header/Footer über bzw. unter der Spielerliste
+  header-footer-enabled: true
+  header: |-
+    &b&lZeitlimit
+    &7Heute noch &f{remaining}
+  footer: "&8Reset um &7{reset} &8Uhr  &8|  &7{online} online"
+  # Anzeige für Spieler mit Bypass
+  bypass-label: "∞"
+
+# -----------------------------------------------------------------------------
 # Nachrichten (& = Farbcodes, Platzhalter: {remaining}, {used}, {limit}, {player})
 # -----------------------------------------------------------------------------
 messages:

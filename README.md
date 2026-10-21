@@ -7,6 +7,8 @@ Ist das Limit aufgebraucht, wird der Spieler gekickt und bis zum nächsten Tages
 
 - Konfigurierbares Tageslimit (`config.yml`)
 - Kick + Login-Sperre bei Limitüberschreitung
+- **TAB-Liste:** Restzeit rechts (Minuten-Score) + kompakter Suffix hinter jedem Namen
+- TAB Header/Footer mit Tages-Restzeit
 - Sporadische Erinnerungen in **Chat** und **Actionbar** (kein Dauer-Spam)
 - Zusätzliche Warnungen bei konfigurierbaren Restzeit-Schwellen (z. B. 30 / 10 / 5 / 1 Min.)
 - `/playtime` zum manuellen Abfragen der Restzeit
@@ -41,9 +43,15 @@ daily-limit-minutes: 120          # Tageslimit
 reminder-interval-seconds: 300    # Erinnerung alle 5 Minuten (0 = aus)
 warning-thresholds-minutes: [30, 10, 5, 1]
 reset-hour: 0                     # Tageswechsel um 00:00 Serverzeit
+
+tab:
+  enabled: true
+  score-enabled: true             # gelbe Minuten-Zahl rechts
+  suffix-enabled: true            # Text hinter dem Namen (z. B. • 1h 20m)
+  header-footer-enabled: true
 ```
 
-Alle Chat-/Kick-Texte sind unter `messages:` anpassbar (`&`-Farbcodes).
+Alle Chat-/Kick-/TAB-Texte sind unter `messages:` bzw. `tab:` anpassbar (`&`-Farbcodes).
 
 ## Schnelltest
 

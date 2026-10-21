@@ -31,6 +31,24 @@ public final class TimeFormatter {
     }
 
     /**
+     * Kompakte Darstellung für die TAB-Liste (ohne Sekunden).
+     * Beispiele: {@code 2h 05m}, {@code 45m}, {@code &lt;1m}.
+     */
+    public static String formatCompact(long millis) {
+        long totalSeconds = Math.max(0L, millis) / 1000L;
+        long hours = totalSeconds / 3600L;
+        long minutes = (totalSeconds % 3600L) / 60L;
+
+        if (hours > 0) {
+            return String.format("%dh %02dm", hours, minutes);
+        }
+        if (minutes > 0) {
+            return minutes + "m";
+        }
+        return "<1m";
+    }
+
+    /**
      * Formatiert die Reset-Stunde als {@code HH:00}.
      *
      * @param hour Stunde 0–23

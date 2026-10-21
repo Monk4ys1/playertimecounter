@@ -21,6 +21,17 @@ public final class PluginSettings {
     private final int resetHour;
     private final String bypassPermission;
 
+    // TAB
+    private final boolean tabEnabled;
+    private final boolean tabScoreEnabled;
+    private final boolean tabSuffixEnabled;
+    private final boolean tabHeaderFooterEnabled;
+    private final String tabScoreTitle;
+    private final String tabSuffixFormat;
+    private final String tabHeader;
+    private final String tabFooter;
+    private final String tabBypassLabel;
+
     /**
      * Liest alle Einstellungen aus der aktuellen Plugin-Config.
      *
@@ -41,7 +52,6 @@ public final class PluginSettings {
                 thresholds.add(minutes * 60_000L);
             }
         }
-        // Absteigend sortieren, damit die größte Schwelle zuerst geprüft wird
         thresholds.sort(Collections.reverseOrder());
         this.warningThresholdsMs = List.copyOf(thresholds);
 
@@ -49,41 +59,75 @@ public final class PluginSettings {
         this.resetHour = Math.floorMod(hour, 24);
 
         this.bypassPermission = config.getString("bypass-permission", "playertimecounter.bypass");
+
+        this.tabEnabled = config.getBoolean("tab.enabled", true);
+        this.tabScoreEnabled = config.getBoolean("tab.score-enabled", true);
+        this.tabSuffixEnabled = config.getBoolean("tab.suffix-enabled", true);
+        this.tabHeaderFooterEnabled = config.getBoolean("tab.header-footer-enabled", true);
+        this.tabScoreTitle = config.getString("tab.score-title", "&bRest");
+        this.tabSuffixFormat = config.getString("tab.suffix-format", " &8• {color}{remaining_compact}");
+        this.tabHeader = config.getString("tab.header", "&b&lZeitlimit\n&7Heute noch &f{remaining}");
+        this.tabFooter = config.getString("tab.footer", "&8Reset um &7{reset} &8Uhr &8| &7{online} online");
+        this.tabBypassLabel = config.getString("tab.bypass-label", "∞");
     }
 
-    /** Tageslimit in Millisekunden. */
     public long getDailyLimitMs() {
         return dailyLimitMs;
     }
 
-    /** Intervall des Tracker-Tasks in Sekunden. */
     public int getTrackerIntervalSeconds() {
         return trackerIntervalSeconds;
     }
 
-    /**
-     * Intervall für periodische Chat-/Actionbar-Erinnerungen in Sekunden.
-     * {@code 0} deaktiviert periodische Erinnerungen.
-     */
     public int getReminderIntervalSeconds() {
         return reminderIntervalSeconds;
     }
 
-    /**
-     * Warnschwellen in Millisekunden Restzeit (absteigend sortiert).
-     * Jede Schwelle wird pro Tag nur einmal ausgelöst.
-     */
     public List<Long> getWarningThresholdsMs() {
         return warningThresholdsMs;
     }
 
-    /** Stunde (0–23) des Tageswechsels in der Server-Zeitzone. */
     public int getResetHour() {
         return resetHour;
     }
 
-    /** Permission, die das Limit komplett umgeht. */
     public String getBypassPermission() {
         return bypassPermission;
+    }
+
+    public boolean isTabEnabled() {
+        return tabEnabled;
+    }
+
+    public boolean isTabScoreEnabled() {
+        return tabScoreEnabled;
+    }
+
+    public boolean isTabSuffixEnabled() {
+        return tabSuffixEnabled;
+    }
+
+    public boolean isTabHeaderFooterEnabled() {
+        return tabHeaderFooterEnabled;
+    }
+
+    public String getTabScoreTitle() {
+        return tabScoreTitle;
+    }
+
+    public String getTabSuffixFormat() {
+        return tabSuffixFormat;
+    }
+
+    public String getTabHeader() {
+        return tabHeader;
+    }
+
+    public String getTabFooter() {
+        return tabFooter;
+    }
+
+    public String getTabBypassLabel() {
+        return tabBypassLabel;
     }
 }

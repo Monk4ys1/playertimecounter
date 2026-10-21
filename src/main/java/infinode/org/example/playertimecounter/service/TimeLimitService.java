@@ -28,6 +28,7 @@ public final class TimeLimitService {
     private final PlayerTimeStorage storage;
     private final MessageService messages;
     private PluginSettings settings;
+    private TabDisplayService tabDisplay;
 
     /** Session-Start (Epoch-Millis) pro online Spieler. */
     private final Map<UUID, Long> sessionStartMs = new ConcurrentHashMap<>();
@@ -48,8 +49,14 @@ public final class TimeLimitService {
         this.storage = storage;
         this.messages = messages;
         this.settings = settings;
+    }
 
-        // Bereits online (z. B. nach Reload) als Session starten
+    /**
+     * Verbindet die TAB-Anzeige und startet Sessions für bereits online Spieler.
+     * Muss nach der Konstruktion aufgerufen werden (Zyklus vermeiden).
+     */
+    public void attachTabDisplay(TabDisplayService tabDisplay) {
+        this.tabDisplay = tabDisplay;
         for (Player player : Bukkit.getOnlinePlayers()) {
             handleJoin(player);
         }
@@ -59,6 +66,9 @@ public final class TimeLimitService {
     public void updateSettings(PluginSettings settings) {
         this.settings = settings;
         messages.reload();
+        if (tabDisplay != null) {
+            tabDisplay.updateSettings(settings);
+        }
     }
 
     public PluginSettings getSettings() {
@@ -72,12 +82,19 @@ public final class TimeLimitService {
     public void handleJoin(Player player) {
         if (hasBypass(player)) {
             sessionStartMs.remove(player.getUniqueId());
+            if (tabDisplay != null) {
+                tabDisplay.updatePlayer(player);
+            }
             return;
         }
 
         ensureCurrentDay(player.getUniqueId());
         sessionStartMs.put(player.getUniqueId(), System.currentTimeMillis());
         lastReminderMs.put(player.getUniqueId(), System.currentTimeMillis());
+
+        if (tabDisplay != null) {
+            tabDisplay.updatePlayer(player);
+        }
 
         // Kurze Begrüßung mit Restzeit (nach 1 Tick, damit Client bereit ist)
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -118,12 +135,15 @@ public final class TimeLimitService {
         flushSession(player.getUniqueId());
         sessionStartMs.remove(player.getUniqueId());
         lastReminderMs.remove(player.getUniqueId());
+        if (tabDisplay != null) {
+            tabDisplay.clearPlayer(player);
+        }
         storage.save();
     }
 
     /**
-     * Periodischer Tick: Session-Zeit aufaddieren, Limit/Warnungen prüfen.
-     * Alle 60 Sekunden zusätzlich auf Disk speichern (Crash-Sicherheit).
+     * Periodischer Tick: Session-Zeit aufaddieren, Limit/Warnungen prüfen,
+     * TAB aktualisieren. Alle 60 Sekunden zusätzlich auf Disk speichern.
      */
     public void tickOnlinePlayers() {
         long now = System.currentTimeMillis();
@@ -132,6 +152,10 @@ public final class TimeLimitService {
                 continue;
             }
             tickPlayer(player, now);
+        }
+
+        if (tabDisplay != null) {
+            tabDisplay.refreshAll();
         }
 
         if (now - lastAutoSaveMs >= 60_000L) {
@@ -228,6 +252,7 @@ public final class TimeLimitService {
         record.clearWarnings();
         rearmSession(target);
         storage.save();
+        refreshTab(target);
         maybeKickIfOverLimit(target);
     }
 
@@ -238,6 +263,7 @@ public final class TimeLimitService {
         record.addUsedMs(Math.max(0L, minutes) * 60_000L);
         rearmSession(target);
         storage.save();
+        refreshTab(target);
         maybeKickIfOverLimit(target);
     }
 
@@ -250,6 +276,13 @@ public final class TimeLimitService {
         rearmSession(target);
         lastReminderMs.put(target.getUniqueId(), System.currentTimeMillis());
         storage.save();
+        refreshTab(target);
+    }
+
+    private void refreshTab(Player target) {
+        if (tabDisplay != null && target.isOnline()) {
+            tabDisplay.updatePlayer(target);
+        }
     }
 
     private void maybeKickIfOverLimit(Player target) {

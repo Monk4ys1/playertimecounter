@@ -6,9 +6,11 @@ import infinode.org.example.playertimecounter.command.PlaytimeTestCommand;
 import infinode.org.example.playertimecounter.config.PluginSettings;
 import infinode.org.example.playertimecounter.data.PlayerTimeStorage;
 import infinode.org.example.playertimecounter.listener.PlayerConnectionListener;
+import infinode.org.example.playertimecounter.service.TabDisplayService;
 import infinode.org.example.playertimecounter.service.TimeLimitService;
 import infinode.org.example.playertimecounter.task.PlaytimeTrackerTask;
 import infinode.org.example.playertimecounter.util.MessageService;
+import infinode.org.example.playertimecounter.util.StartupBanner;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -17,6 +19,7 @@ import org.bukkit.plugin.java.JavaPlugin;
  * <p>
  * Begrenzt die tägliche Spielzeit pro Spieler. Bei Erreichen des Limits
  * wird der Spieler gekickt und bis zum nächsten Tageswechsel am Login gehindert.
+ * Die Restzeit erscheint rechts in der TAB-Liste.
  * <p>
  * Befehle:
  * <ul>
@@ -28,6 +31,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class Playertimecounter extends JavaPlugin {
 
     private TimeLimitService timeLimitService;
+    private TabDisplayService tabDisplayService;
     private MessageService messageService;
     private PlayerTimeStorage storage;
     private PlaytimeTrackerTask trackerTask;
@@ -40,6 +44,8 @@ public final class Playertimecounter extends JavaPlugin {
         this.storage = new PlayerTimeStorage(this);
         PluginSettings settings = new PluginSettings(this);
         this.timeLimitService = new TimeLimitService(this, storage, messageService, settings);
+        this.tabDisplayService = new TabDisplayService(timeLimitService, messageService, settings);
+        this.timeLimitService.attachTabDisplay(tabDisplayService);
 
         registerCommands();
         getServer().getPluginManager().registerEvents(
@@ -49,8 +55,12 @@ public final class Playertimecounter extends JavaPlugin {
 
         startTracker(settings.getTrackerIntervalSeconds());
 
-        getLogger().info("PlayerTimeCounter aktiv – Tageslimit: "
-                + (settings.getDailyLimitMs() / 60_000L) + " Minuten.");
+        StartupBanner.printEnable(
+                this,
+                settings.getDailyLimitMs() / 60_000L,
+                settings.getResetHour(),
+                settings.isTabEnabled()
+        );
     }
 
     @Override
@@ -59,10 +69,13 @@ public final class Playertimecounter extends JavaPlugin {
             trackerTask.cancel();
             trackerTask = null;
         }
+        if (tabDisplayService != null) {
+            tabDisplayService.clearAll();
+        }
         if (timeLimitService != null) {
             timeLimitService.saveAll();
         }
-        getLogger().info("PlayerTimeCounter deaktiviert – Spielzeiten gespeichert.");
+        StartupBanner.printDisable(this);
     }
 
     /**
@@ -77,11 +90,11 @@ public final class Playertimecounter extends JavaPlugin {
             trackerTask.cancel();
         }
         startTracker(settings.getTrackerIntervalSeconds());
+        StartupBanner.printReload(this, settings.getDailyLimitMs() / 60_000L);
     }
 
     private void startTracker(int intervalSeconds) {
         trackerTask = new PlaytimeTrackerTask(timeLimitService);
-        // delay 20 ticks (1s), dann periodisch
         trackerTask.runTaskTimer(this, 20L, intervalSeconds * 20L);
     }
 
