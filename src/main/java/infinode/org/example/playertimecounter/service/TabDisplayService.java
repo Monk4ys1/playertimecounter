@@ -13,6 +13,7 @@ import org.bukkit.scoreboard.Scoreboard;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Zeigt die verbleibende Tages-Spielzeit in der TAB-Liste:
@@ -29,6 +30,8 @@ public final class TabDisplayService {
     private final TimeLimitService timeLimitService;
     private final MessageService messages;
     private PluginSettings settings;
+    /** Letzter gerenderter Listenname, damit die TAB-Zeile nicht flackert. */
+    private final Map<UUID, String> lastListName = new HashMap<>();
 
     public TabDisplayService(
             TimeLimitService timeLimitService,
@@ -42,11 +45,17 @@ public final class TabDisplayService {
 
     public void updateSettings(PluginSettings settings) {
         this.settings = settings;
+        lastListName.clear();
         if (!settings.isTabEnabled()) {
             clearAll();
-        } else {
-            refreshAll();
+            return;
         }
+        if (!settings.isTabHeaderFooterEnabled()) {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                player.sendPlayerListHeaderAndFooter(Component.empty(), Component.empty());
+            }
+        }
+        refreshAll();
     }
 
     /** Aktualisiert TAB für einen Spieler (Join / manuelle Änderung). */
@@ -92,13 +101,14 @@ public final class TabDisplayService {
 
     /** Entfernt TAB-Anpassungen beim Quit. */
     public void clearPlayer(Player player) {
+        lastListName.remove(player.getUniqueId());
         player.playerListName(null);
-        player.sendPlayerListHeaderAndFooter(Component.empty(), Component.empty());
         removeScore(player.getName());
     }
 
     /** Setzt beim Disable alles zurück. */
     public void clearAll() {
+        lastListName.clear();
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.playerListName(null);
             player.sendPlayerListHeaderAndFooter(Component.empty(), Component.empty());
@@ -121,19 +131,23 @@ public final class TabDisplayService {
 
     private void applyPlayerListName(Player player) {
         if (!settings.isTabSuffixEnabled()) {
-            player.playerListName(null);
+            if (lastListName.remove(player.getUniqueId()) != null) {
+                player.playerListName(null);
+            }
             return;
         }
 
         Map<String, String> placeholders = buildTabPlaceholders(player);
-        String template = settings.getTabSuffixFormat();
-        String rendered = messages.applyPlaceholders(template, placeholders);
-        Component suffix = messages.colorize(rendered);
+        String rendered = messages.applyPlaceholders(settings.getTabSuffixFormat(), placeholders);
+        String previous = lastListName.put(player.getUniqueId(), rendered);
+        if (rendered.equals(previous)) {
+            return;
+        }
 
         player.playerListName(
                 Component.text()
                         .append(Component.text(player.getName()))
-                        .append(suffix)
+                        .append(messages.colorize(rendered))
                         .build()
         );
     }
@@ -181,6 +195,8 @@ public final class TabDisplayService {
                     Criteria.DUMMY,
                     messages.colorize(settings.getTabScoreTitle())
             );
+        } else {
+            objective.displayName(messages.colorize(settings.getTabScoreTitle()));
         }
         if (objective.getDisplaySlot() != DisplaySlot.PLAYER_LIST) {
             objective.setDisplaySlot(DisplaySlot.PLAYER_LIST);
@@ -201,8 +217,9 @@ public final class TabDisplayService {
 
     private void resetScore(Scoreboard board, String playerName) {
         Objective objective = board.getObjective(OBJECTIVE_NAME);
-        if (objective != null) {
-            board.resetScores(playerName);
+        if (objective != null && objective.getScore(playerName).isScoreSet()) {
+            // Nur unseren Eintrag entfernen, nicht Scores anderer Plugins
+            objective.getScore(playerName).resetScore();
         }
     }
 
@@ -221,11 +238,12 @@ public final class TabDisplayService {
                 ? settings.getDailyLimitMs()
                 : timeLimitService.getRemainingMs(player.getUniqueId());
 
-        map.put("remaining_compact", timeLimitService.hasBypass(player)
+        boolean bypass = timeLimitService.hasBypass(player);
+        map.put("remaining_compact", bypass
                 ? settings.getTabBypassLabel()
                 : TimeFormatter.formatCompact(remainingMs));
         map.put("remaining_minutes", String.valueOf(remainingMinutesForTab(player)));
-        map.put("color", remainingColor(remainingMs));
+        map.put("color", bypass ? "&d" : remainingColor(remainingMs));
         map.put("online", String.valueOf(Bukkit.getOnlinePlayers().size()));
         return map;
     }

@@ -27,7 +27,7 @@ warning-thresholds-minutes:
 # Beispiel: 4 = Reset um 04:00 Uhr morgens
 reset-hour: 0
 
-# Bypass-Permission (Spieler mit dieser Permission haben kein Limit)
+# Bypass-Permission. Standardmäßig hat niemand sie, auch keine OPs.
 bypass-permission: playertimecounter.bypass
 
 # -----------------------------------------------------------------------------
@@ -37,54 +37,55 @@ tab:
   enabled: true
   # Gelbe Zahl ganz rechts (Rest-Minuten)
   score-enabled: true
-  score-title: "&bRest"
+  score-title: "&7min"
   # Formatierter Text hinter dem Spielernamen
   suffix-enabled: true
   # Platzhalter: {remaining_compact}, {remaining}, {color}, {remaining_minutes}, …
-  suffix-format: " &8• {color}{remaining_compact}"
+  suffix-format: " &8· {color}{remaining_compact}"
   # Header/Footer über bzw. unter der Spielerliste
   header-footer-enabled: true
   header: |-
-    &b&lZeitlimit
-    &7Heute noch &f{remaining}
-  footer: "&8Reset um &7{reset} &8Uhr  &8|  &7{online} online"
-  # Anzeige für Spieler mit Bypass
-  bypass-label: "∞"
+    &b&lSpielzeit
+    &7Noch &f{remaining_compact} &7heute
+  footer: "&8Reset &7{reset} &8· &7{online} online"
+  # Anzeige für Spieler mit Bypass (Vanilla-Schrift, kein Sonderzeichen)
+  bypass-label: "Bypass"
 
 # -----------------------------------------------------------------------------
 # Nachrichten (& = Farbcodes, Platzhalter: {remaining}, {used}, {limit}, {player})
 # -----------------------------------------------------------------------------
 messages:
-  prefix: "&8[&bZeitlimit&8]&r "
+  prefix: "&8[&bZeit&8] "
 
   remaining:
-    - "&7Du hast heute noch &a{remaining} &7übrig."
-    - "&8(Verbraucht: &7{used}&8 / Limit: &7{limit}&8)"
+    - "&7Heute noch &a{remaining} &7übrig."
+    - "&8Verbraucht &7{used} &8/ &7{limit}"
 
-  actionbar: "&b⏱ &7Noch &f{remaining} &7heute"
+  actionbar: "&7Noch &f{remaining}"
 
-  reminder-chat: "&7Erinnerung: Noch &a{remaining} &7Spielzeit heute."
+  reminder-chat: "&7Erinnerung: noch &a{remaining} &7heute."
 
-  warning: "&e⚠ Achtung:&7 Nur noch &c{remaining} &7übrig!"
+  warning: "&eAchtung: &7nur noch &c{remaining}&7."
 
   kick: |-
-    &c&lTageslimit erreicht!
+    &c&lTageslimit erreicht
     &7Dein Limit von &f{limit} &7ist aufgebraucht.
-    &7Komm morgen wieder – Reset um &f{reset}&7 Uhr.
+    &7Nächster Reset um &f{reset}&7 Uhr.
 
   deny-join: |-
-    &c&lTageslimit bereits erreicht!
+    &c&lTageslimit erreicht
     &7Du hast heute schon &f{limit} &7gespielt.
-    &7Nächster Reset: &f{reset}&7 Uhr.
+    &7Nächster Reset um &f{reset}&7 Uhr.
 
-  bypass: "&7Du hast &aBypass&7 – kein Zeitlimit aktiv."
+  bypass: "&7Kein Limit aktiv &8(&fBypass&8)."
 
   reload-success: "&aKonfiguration neu geladen."
   no-permission: "&cDazu hast du keine Berechtigung."
   player-only: "&cNur Spieler können diesen Befehl nutzen."
-  player-not-found: "&cSpieler &f{player} &cnicht gefunden."
-  test-set: "&aSpielzeit von &f{player} &aauf &f{used} &agesetzt (&7Rest: {remaining}&a)."
-  test-add: "&a{used} &azu &f{player} &ahinzugefügt (&7Rest: {remaining}&a)."
-  test-reset: "&aTageszeit von &f{player} &azurückgesetzt."
-  test-status: "&7{player}: &f{used} &8/ &f{limit} &8→ Rest &a{remaining}"
+  player-not-found: "&cSpieler &f{player} &cist unbekannt. Er muss schon einmal online gewesen sein."
+  test-missing-player: "&cBitte einen Spielernamen angeben."
+  test-set: "&a{player} &7steht jetzt bei &f{used} &8(&7Rest &a{remaining}&8)."
+  test-add: "&a{added} &7zu &f{player} &7hinzugefügt &8(&7jetzt &f{used}&8, Rest &a{remaining}&8)."
+  test-reset: "&aTageszeit von &f{player} &azurückgesetzt. Login ist wieder möglich."
+  test-status: "&7{player}: &f{used} &8/ &f{limit} &8· Rest &a{remaining}"
   test-usage: "&eNutzung: &f/playtimetest <set|add|reset|status> [Minuten] [Spieler]"

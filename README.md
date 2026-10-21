@@ -13,8 +13,14 @@ Ist das Limit aufgebraucht, wird der Spieler gekickt und bis zum nächsten Tages
 - Zusätzliche Warnungen bei konfigurierbaren Restzeit-Schwellen (z. B. 30 / 10 / 5 / 1 Min.)
 - `/playtime` zum manuellen Abfragen der Restzeit
 - `/playtimetest` zum Testen (setzen, addieren, resetten, Status)
-- Bypass-Permission für Admins
+- Bypass-Permission `playertimecounter.bypass` (standardmäßig **niemand**, auch keine OPs)
 - Persistenz in `playtimes.yml` (überlebt Restarts)
+- `/playtimetest reset <Name>` funktioniert auch für **offline** Spieler (Login-Sperre aufheben)
+
+## Update
+
+Liegt `plugins/PlayerTimeCounter/config.yml` schon auf dem Server, überschreibt Paper sie nicht.
+Für die neuen Texte die Datei einmal löschen (die Spielzeiten in `playtimes.yml` bleiben) oder die Abschnitte `messages` und `tab` aus der aktuellen `config.yml` übernehmen.
 
 ## Installation
 
@@ -62,7 +68,15 @@ Alle Chat-/Kick-/TAB-Texte sind unter `messages:` bzw. `tab:` anpassbar (`&`-Far
 5. Erneut joinen → Login wird verweigert
 6. `/playtimetest reset <Spieler>` (als anderer OP / Konsole nach erneutem Join mit Bypass) bzw. Limit/Reset-Stunde anpassen
 
-Zum Testen ohne Kick: Permission `playertimecounter.bypass` (Standard: OP).
+Zum Testen ohne Kick die Permission `playertimecounter.bypass` vergeben. OPs haben sie nicht automatisch.
+
+Wenn jemand schon rausgeworfen wurde:
+
+```
+/playtimetest reset <Spieler>
+```
+
+Der Spieler muss dafür nicht online sein. Danach kann er wieder joinen.
 
 ## Technik
 
