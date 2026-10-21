@@ -108,20 +108,53 @@ public final class MessageService {
         player.sendActionBar(colorize(lines.getFirst()));
     }
 
+    /**
+     * Ersetzt {@code {key}}-Platzhalter in einem freien Template-String.
+     */
+    public String applyPlaceholders(String template, Map<String, String> placeholders) {
+        if (template == null) {
+            return "";
+        }
+        String result = template;
+        for (Map.Entry<String, String> entry : placeholders.entrySet()) {
+            result = result.replace("{" + entry.getKey() + "}", entry.getValue());
+        }
+        return result;
+    }
+
+    /** Wandelt Legacy-&amp;-Farbcodes in eine Adventure-Komponente um. */
+    public Component colorize(String input) {
+        return LEGACY.deserialize(input == null ? "" : input);
+    }
+
+    /**
+     * Wie {@link #colorize(String)}, unterstützt aber echte Zeilenumbrüche
+     * (z. B. TAB-Header aus YAML {@code |-}).
+     */
+    public Component colorizeMultiline(String input) {
+        if (input == null || input.isEmpty()) {
+            return Component.empty();
+        }
+        String[] lines = input.split("\\R", -1);
+        if (lines.length == 1) {
+            return colorize(lines[0]);
+        }
+        net.kyori.adventure.text.TextComponent.Builder builder = Component.text();
+        for (int i = 0; i < lines.length; i++) {
+            if (i > 0) {
+                builder.append(Component.newline());
+            }
+            builder.append(colorize(lines[i]));
+        }
+        return builder.build();
+    }
+
     private List<String> resolveLines(String key, Map<String, String> placeholders) {
         List<String> template = messageLines.getOrDefault(key, List.of("&cFehlende Nachricht: " + key));
         List<String> resolved = new ArrayList<>(template.size());
         for (String line : template) {
-            String result = line;
-            for (Map.Entry<String, String> entry : placeholders.entrySet()) {
-                result = result.replace("{" + entry.getKey() + "}", entry.getValue());
-            }
-            resolved.add(result);
+            resolved.add(applyPlaceholders(line, placeholders));
         }
         return resolved;
-    }
-
-    private static Component colorize(String input) {
-        return LEGACY.deserialize(input == null ? "" : input);
     }
 }
