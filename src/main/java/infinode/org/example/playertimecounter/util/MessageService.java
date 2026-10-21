@@ -95,8 +95,7 @@ public final class MessageService {
         if (lines.isEmpty()) {
             return Component.empty();
         }
-        String joined = String.join("\n", lines);
-        return colorize(joined);
+        return colorizeMultiline(String.join("\n", lines));
     }
 
     /** Actionbar-Nachricht an einen Spieler. */

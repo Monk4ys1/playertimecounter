@@ -35,5 +35,5 @@ permissions:
     description: Erlaubt das Neuladen der Konfiguration.
     default: op
   playertimecounter.bypass:
-    description: Umgeht das Tageslimit vollständig.
-    default: op
+    description: Umgeht das Tageslimit vollständig. Standardmäßig niemand, auch keine OPs.
+    default: false

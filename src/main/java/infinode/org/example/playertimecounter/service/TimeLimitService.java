@@ -3,20 +3,23 @@ package infinode.org.example.playertimecounter.service;
 import infinode.org.example.playertimecounter.config.PluginSettings;
 import infinode.org.example.playertimecounter.data.PlayerDayRecord;
 import infinode.org.example.playertimecounter.data.PlayerTimeStorage;
+import infinode.org.example.playertimecounter.util.DayCycle;
 import infinode.org.example.playertimecounter.util.MessageService;
 import infinode.org.example.playertimecounter.util.TimeFormatter;
+import infinode.org.example.playertimecounter.util.Warnings;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 
 /**
  * Kernlogik: Spielzeit zählen, Limit prüfen, Kick/Join-Sperre,
@@ -81,10 +84,16 @@ public final class TimeLimitService {
      */
     public void handleJoin(Player player) {
         if (hasBypass(player)) {
+            // Zeit während Bypass nicht mitzählen
             sessionStartMs.remove(player.getUniqueId());
             if (tabDisplay != null) {
                 tabDisplay.updatePlayer(player);
             }
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (player.isOnline()) {
+                    messages.send(player, "bypass");
+                }
+            }, 20L);
             return;
         }
 
@@ -147,31 +156,46 @@ public final class TimeLimitService {
      */
     public void tickOnlinePlayers() {
         long now = System.currentTimeMillis();
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (hasBypass(player)) {
+        // Kopie: ein Kick während der Schleife darf den Tracker nicht abbrechen
+        List<Player> online = new ArrayList<>(Bukkit.getOnlinePlayers());
+        for (Player player : online) {
+            if (!player.isOnline()) {
                 continue;
             }
-            tickPlayer(player, now);
+            try {
+                if (hasBypass(player)) {
+                    flushSession(player.getUniqueId());
+                    sessionStartMs.remove(player.getUniqueId());
+                    continue;
+                }
+                tickPlayer(player);
+            } catch (Exception ex) {
+                plugin.getLogger().log(Level.WARNING, "Spielzeit-Tick fehlgeschlagen für " + player.getName(), ex);
+            }
         }
 
         if (tabDisplay != null) {
-            tabDisplay.refreshAll();
+            try {
+                tabDisplay.refreshAll();
+            } catch (Exception ex) {
+                plugin.getLogger().log(Level.WARNING, "TAB-Update fehlgeschlagen", ex);
+            }
         }
 
         if (now - lastAutoSaveMs >= 60_000L) {
             lastAutoSaveMs = now;
-            for (UUID uuid : sessionStartMs.keySet()) {
-                flushSession(uuid);
-            }
-            storage.save();
+            saveAll();
         }
     }
 
-    private void tickPlayer(Player player, long now) {
+    private void tickPlayer(Player player) {
         UUID uuid = player.getUniqueId();
         ensureCurrentDay(uuid);
+        if (!sessionStartMs.containsKey(uuid)) {
+            sessionStartMs.put(uuid, System.currentTimeMillis());
+            lastReminderMs.putIfAbsent(uuid, System.currentTimeMillis());
+        }
         flushSession(uuid);
-        sessionStartMs.put(uuid, now);
 
         PlayerDayRecord record = storage.getOrCreate(uuid, currentDayKey());
         long remaining = remainingMs(record);
@@ -182,7 +206,7 @@ public final class TimeLimitService {
         }
 
         checkWarningThresholds(player, record, remaining);
-        maybeSendReminder(player, remaining, now);
+        maybeSendReminder(player, remaining, System.currentTimeMillis());
     }
 
     /** Kick und Session beenden, wenn das Limit erreicht ist. */
@@ -194,14 +218,13 @@ public final class TimeLimitService {
     }
 
     private void checkWarningThresholds(Player player, PlayerDayRecord record, long remaining) {
-        for (long threshold : settings.getWarningThresholdsMs()) {
-            if (remaining <= threshold && !record.hasWarningFired(threshold)) {
-                record.markWarningFired(threshold);
-                Map<String, String> placeholders = placeholders(player);
-                messages.send(player, "warning", placeholders);
-                messages.sendActionBar(player, "actionbar", placeholders);
-            }
+        if (!Warnings.markAndShouldNotify(record, settings.getWarningThresholdsMs(), remaining)) {
+            return;
         }
+        Map<String, String> placeholders = placeholders(player);
+        messages.send(player, "warning", placeholders);
+        messages.sendActionBar(player, "actionbar", placeholders);
+        storage.save();
     }
 
     private void maybeSendReminder(Player player, long remaining, long now) {
@@ -244,49 +267,45 @@ public final class TimeLimitService {
     // Test-/Admin-Manipulationen
     // -------------------------------------------------------------------------
 
-    /** Setzt die verbrauchte Zeit absolut (in Minuten). */
-    public void setUsedMinutes(Player target, long minutes) {
-        ensureCurrentDay(target.getUniqueId());
-        PlayerDayRecord record = storage.getOrCreate(target.getUniqueId(), currentDayKey());
+    /** Setzt die verbrauchte Zeit absolut (in Minuten). Kickt nicht selbst. */
+    public void setUsedMinutes(UUID uuid, long minutes) {
+        ensureCurrentDay(uuid);
+        PlayerDayRecord record = storage.getOrCreate(uuid, currentDayKey());
         record.setUsedMs(Math.max(0L, minutes) * 60_000L);
         record.clearWarnings();
-        rearmSession(target);
+        rearmSession(uuid);
         storage.save();
-        refreshTab(target);
-        maybeKickIfOverLimit(target);
+        refreshTab(uuid);
     }
 
-    /** Addiert verbrauchte Minuten. */
-    public void addUsedMinutes(Player target, long minutes) {
-        ensureCurrentDay(target.getUniqueId());
-        PlayerDayRecord record = storage.getOrCreate(target.getUniqueId(), currentDayKey());
+    /** Addiert verbrauchte Minuten. Kickt nicht selbst. */
+    public void addUsedMinutes(UUID uuid, long minutes) {
+        ensureCurrentDay(uuid);
+        PlayerDayRecord record = storage.getOrCreate(uuid, currentDayKey());
         record.addUsedMs(Math.max(0L, minutes) * 60_000L);
-        rearmSession(target);
+        rearmSession(uuid);
         storage.save();
-        refreshTab(target);
-        maybeKickIfOverLimit(target);
+        refreshTab(uuid);
     }
 
-    /** Setzt die Tageszeit eines Spielers auf 0 zurück. */
-    public void resetPlayer(Player target) {
-        PlayerDayRecord record = storage.getOrCreate(target.getUniqueId(), currentDayKey());
+    /**
+     * Setzt die Tageszeit zurück. Funktioniert auch für offline Spieler,
+     * damit eine Login-Sperre vom Admin aufgehoben werden kann.
+     */
+    public void resetPlayer(UUID uuid) {
+        PlayerDayRecord record = storage.getOrCreate(uuid, currentDayKey());
         record.setDayKey(currentDayKey());
         record.setUsedMs(0L);
         record.clearWarnings();
-        rearmSession(target);
-        lastReminderMs.put(target.getUniqueId(), System.currentTimeMillis());
+        rearmSession(uuid);
+        lastReminderMs.put(uuid, System.currentTimeMillis());
         storage.save();
-        refreshTab(target);
+        refreshTab(uuid);
     }
 
-    private void refreshTab(Player target) {
-        if (tabDisplay != null && target.isOnline()) {
-            tabDisplay.updatePlayer(target);
-        }
-    }
-
-    private void maybeKickIfOverLimit(Player target) {
-        if (!target.isOnline() || hasBypass(target)) {
+    /** Kickt den Spieler, wenn er online ist und das Limit erreicht hat. */
+    public void kickIfOverLimit(Player target) {
+        if (target == null || !target.isOnline() || hasBypass(target)) {
             return;
         }
         PlayerDayRecord record = storage.getOrCreate(target.getUniqueId(), currentDayKey());
@@ -295,9 +314,22 @@ public final class TimeLimitService {
         }
     }
 
-    private void rearmSession(Player target) {
-        if (target.isOnline() && !hasBypass(target)) {
-            sessionStartMs.put(target.getUniqueId(), System.currentTimeMillis());
+    private void refreshTab(UUID uuid) {
+        if (tabDisplay == null) {
+            return;
+        }
+        Player online = Bukkit.getPlayer(uuid);
+        if (online != null && online.isOnline()) {
+            tabDisplay.updatePlayer(online);
+        }
+    }
+
+    private void rearmSession(UUID uuid) {
+        Player online = Bukkit.getPlayer(uuid);
+        if (online != null && online.isOnline() && !hasBypass(online)) {
+            sessionStartMs.put(uuid, System.currentTimeMillis());
+        } else {
+            sessionStartMs.remove(uuid);
         }
     }
 
@@ -316,13 +348,16 @@ public final class TimeLimitService {
     }
 
     public Map<String, String> placeholders(Player player) {
-        flushSession(player.getUniqueId());
-        PlayerDayRecord record = ensureCurrentDay(player.getUniqueId());
-        long used = record.getUsedMs();
+        return placeholders(player.getUniqueId(), player.getName());
+    }
+
+    /** Platzhalter für online und offline Spieler. */
+    public Map<String, String> placeholders(UUID uuid, String name) {
+        long used = getUsedMs(uuid);
         long remaining = Math.max(0L, settings.getDailyLimitMs() - used);
 
         Map<String, String> map = new HashMap<>();
-        map.put("player", player.getName());
+        map.put("player", name == null ? uuid.toString() : name);
         map.put("used", TimeFormatter.format(used));
         map.put("remaining", TimeFormatter.format(remaining));
         map.put("limit", TimeFormatter.format(settings.getDailyLimitMs()));
@@ -380,11 +415,6 @@ public final class TimeLimitService {
      * Vor der Reset-Stunde zählt noch der vorherige Kalendertag.
      */
     public String currentDayKey() {
-        LocalDateTime now = LocalDateTime.now();
-        LocalTime reset = LocalTime.of(settings.getResetHour(), 0);
-        LocalDate day = now.toLocalTime().isBefore(reset)
-                ? now.toLocalDate().minusDays(1)
-                : now.toLocalDate();
-        return day + "@" + settings.getResetHour();
+        return DayCycle.dayKey(LocalDateTime.now(), settings.getResetHour());
     }
 }

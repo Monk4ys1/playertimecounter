@@ -3,6 +3,7 @@ package infinode.org.example.playertimecounter.command;
 import infinode.org.example.playertimecounter.service.TimeLimitService;
 import infinode.org.example.playertimecounter.util.MessageService;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -12,9 +13,11 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -80,14 +83,14 @@ public final class PlaytimeTestCommand implements CommandExecutor, TabCompleter 
             return true;
         }
 
-        Player target = resolveTarget(sender, args, 2);
+        Target target = resolveTarget(sender, args, 2);
         if (target == null) {
             return true;
         }
 
-        timeLimitService.setUsedMinutes(target, minutes);
-        // Player-Objekt bleibt nach Kick nutzbar (UUID/Name/Platzhalter)
-        messages.send(sender, "test-set", timeLimitService.placeholders(target));
+        timeLimitService.setUsedMinutes(target.uuid(), minutes);
+        messages.send(sender, "test-set", timeLimitService.placeholders(target.uuid(), target.name()));
+        kickIfNeeded(target);
         return true;
     }
 
@@ -103,57 +106,89 @@ public final class PlaytimeTestCommand implements CommandExecutor, TabCompleter 
             return true;
         }
 
-        Player target = resolveTarget(sender, args, 2);
+        Target target = resolveTarget(sender, args, 2);
         if (target == null) {
             return true;
         }
 
-        timeLimitService.addUsedMinutes(target, minutes);
-        messages.send(sender, "test-add", timeLimitService.placeholders(target));
+        timeLimitService.addUsedMinutes(target.uuid(), minutes);
+        Map<String, String> placeholders = new HashMap<>(timeLimitService.placeholders(target.uuid(), target.name()));
+        placeholders.put("added", minutes + "m");
+        messages.send(sender, "test-add", placeholders);
+        kickIfNeeded(target);
         return true;
     }
 
     private boolean handleReset(CommandSender sender, String[] args) {
-        Player target = resolveTarget(sender, args, 1);
+        Target target = resolveTarget(sender, args, 1);
         if (target == null) {
             return true;
         }
 
-        timeLimitService.resetPlayer(target);
-        messages.send(sender, "test-reset", Map.of("player", target.getName()));
+        timeLimitService.resetPlayer(target.uuid());
+        messages.send(sender, "test-reset", Map.of("player", target.name()));
         return true;
     }
 
     private boolean handleStatus(CommandSender sender, String[] args) {
-        Player target = resolveTarget(sender, args, 1);
+        Target target = resolveTarget(sender, args, 1);
         if (target == null) {
             return true;
         }
 
-        messages.send(sender, "test-status", timeLimitService.placeholders(target));
+        messages.send(sender, "test-status", timeLimitService.placeholders(target.uuid(), target.name()));
         return true;
     }
 
+    private void kickIfNeeded(Target target) {
+        Player online = Bukkit.getPlayer(target.uuid());
+        if (online != null) {
+            timeLimitService.kickIfOverLimit(online);
+        }
+    }
+
     /**
-     * Löst den Zielspieler auf: optionaler Name an {@code nameIndex},
-     * sonst der Sender selbst (muss Spieler sein).
+     * Online-Spieler, sonst ein bekannter Offline-Spieler (Login-Sperre aufheben).
+     * Ohne Namen gilt der Sender selbst.
      */
-    private Player resolveTarget(CommandSender sender, String[] args, int nameIndex) {
+    private Target resolveTarget(CommandSender sender, String[] args, int nameIndex) {
         if (args.length > nameIndex) {
-            Player target = Bukkit.getPlayerExact(args[nameIndex]);
+            Target target = findKnownPlayer(args[nameIndex]);
             if (target == null) {
                 messages.send(sender, "player-not-found", Map.of("player", args[nameIndex]));
-                return null;
             }
             return target;
         }
 
         if (sender instanceof Player player) {
-            return player;
+            return new Target(player.getUniqueId(), player.getName());
         }
 
-        messages.send(sender, "player-only");
+        messages.send(sender, "test-missing-player");
         return null;
+    }
+
+    private static Target findKnownPlayer(String name) {
+        Player online = Bukkit.getPlayerExact(name);
+        if (online != null) {
+            return new Target(online.getUniqueId(), online.getName());
+        }
+
+        OfflinePlayer cached = Bukkit.getOfflinePlayerIfCached(name);
+        if (cached != null) {
+            String resolved = cached.getName() == null ? name : cached.getName();
+            return new Target(cached.getUniqueId(), resolved);
+        }
+
+        for (OfflinePlayer offline : Bukkit.getOfflinePlayers()) {
+            if (offline.getName() != null && offline.getName().equalsIgnoreCase(name)) {
+                return new Target(offline.getUniqueId(), offline.getName());
+            }
+        }
+        return null;
+    }
+
+    private record Target(UUID uuid, String name) {
     }
 
     private static Long parseMinutes(String raw) {
