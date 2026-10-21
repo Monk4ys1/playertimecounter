@@ -17,6 +17,11 @@ Ist das Limit aufgebraucht, wird der Spieler gekickt und bis zum nächsten Tages
 - Persistenz in `playtimes.yml` (überlebt Restarts)
 - `/playtimetest reset <Name>` funktioniert auch für **offline** Spieler (Login-Sperre aufheben)
 
+## Update
+
+Liegt `plugins/PlayerTimeCounter/config.yml` schon auf dem Server, überschreibt Paper sie nicht.
+Für die neuen Texte die Datei einmal löschen (die Spielzeiten in `playtimes.yml` bleiben) oder die Abschnitte `messages` und `tab` aus der aktuellen `config.yml` übernehmen.
+
 ## Installation
 
 1. Mit Maven bauen: `mvn clean package`
